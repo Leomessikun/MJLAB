@@ -119,17 +119,6 @@ class ObservationCfg:
       ObsTerm, func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.5, n_max=0.5)
     )
     actions: ObsTerm = term(ObsTerm, func=mdp.last_action)
-    # Optional object pose (world) if dataset contains it
-    object_pose_w: ObsTerm | None = term(
-      ObsTerm, func=mdp.object_pose_w, params={"command_name": "motion"}
-    )
-    # Optional object pose in body frame
-    object_pos_b: ObsTerm | None = term(
-      ObsTerm, func=mdp.object_pos_b, params={"command_name": "motion"}
-    )
-    object_ori_b: ObsTerm | None = term(
-      ObsTerm, func=mdp.object_ori_b, params={"command_name": "motion"}
-    )
 
     def __post_init__(self):
       self.enable_corruption = True
@@ -156,10 +145,6 @@ class ObservationCfg:
     joint_pos: ObsTerm = term(ObsTerm, func=mdp.joint_pos_rel)
     joint_vel: ObsTerm = term(ObsTerm, func=mdp.joint_vel_rel)
     actions: ObsTerm = term(ObsTerm, func=mdp.last_action)
-    # Optional object pose (world)
-    object_pose_w: ObsTerm | None = term(
-      ObsTerm, func=mdp.object_pose_w, params={"command_name": "motion"}
-    )
 
   policy: PolicyCfg = field(default_factory=PolicyCfg)
   critic: PrivilegedCfg = field(default_factory=PrivilegedCfg)
@@ -251,30 +236,7 @@ class RewardCfg:
     weight=1.0,
     params={"command_name": "motion", "std": 3.14},
   )
-  # Object tracking rewards (enabled when object is present)
-  object_global_pos: RewTerm | None = term(
-    RewTerm,
-    func=mdp.object_global_position_error_exp,
-    weight=0.5,
-    params={"command_name": "motion", "object_asset_cfg": SceneEntityCfg("box"), "std": 0.25},
-  )
-  object_global_ori: RewTerm | None = term(
-    RewTerm,
-    func=mdp.object_global_orientation_error_exp,
-    weight=0.5,
-    params={"command_name": "motion", "object_asset_cfg": SceneEntityCfg("box"), "std": 0.4},
-  )
-  ee_relative_to_object_pos: RewTerm | None = term(
-    RewTerm,
-    func=mdp.object_relative_ee_position_error_exp,
-    weight=1.0,
-    params={"command_name": "motion", "object_asset_cfg": SceneEntityCfg("box"), "std": 0.2, "body_names": [
-      "left_ankle_roll_link",
-      "right_ankle_roll_link",
-      "left_wrist_yaw_link",
-      "right_wrist_yaw_link",
-    ]},
-  )
+  
 
   action_rate_l2: RewTerm = term(RewTerm, func=mdp.action_rate_l2, weight=-1e-1)
   joint_limit: RewTerm = term(
@@ -320,8 +282,8 @@ class TerminationsCfg:
 
 
 SIM_CFG = SimulationCfg(
-  nconmax=150_000,
-  njmax=250,
+  nconmax=160_000,
+  njmax=400,
   mujoco=MujocoCfg(
     timestep=0.005,
     iterations=10,

@@ -388,6 +388,20 @@ class MotionCommand(CommandTerm):
       dim=-1,
     )
     self.robot.write_root_state_to_sim(root_state, env_ids=env_ids)
+    # Initialize box from object state at the sampled time-steps so the robot can push it
+    try:
+      box = self._env.scene.entities.get("box")  # type: ignore[attr-defined]
+    except Exception:
+      box = None
+    if box is not None and not box.data.is_fixed_base:
+      # Pose from motion object state (already includes per-env origin offset via object_pos_w)
+      box_pos = self.object_pos_w[env_ids]
+      box_quat = self.object_quat_w[env_ids]
+      box_pose = torch.cat([box_pos, box_quat], dim=-1)
+      # Zero initial velocities to avoid injecting spurious energy
+      box_vel = torch.zeros((box_pose.shape[0], 6), device=self.device)
+      box.write_root_link_pose_to_sim(box_pose, env_ids=env_ids)
+      box.write_root_link_velocity_to_sim(box_vel, env_ids=env_ids)
 
     self.robot.clear_state(env_ids=env_ids)
 
@@ -427,25 +441,35 @@ class MotionCommand(CommandTerm):
     )
     self._current_bin_failed.zero_()
 
-    # If object pose exists and a box entity is present, drive its freejoint
+    # For box pushing tasks, we want the box to be pushed by the robot, not kinematically driven
+    # The ghost box will show the target trajectory, but the real box should respond to robot interaction
+    # Only drive the box if it's a non-physical visualization box
     try:
       box = self._env.scene.entities.get("box")  # type: ignore[attr-defined]
     except Exception:
       box = None
-    if box is not None and not box.data.is_fixed_base and hasattr(self.motion, "_object_pos_w"):
-      t = self.time_steps
-      # Build (N,7) pose from per-time arrays; clamp indices in range
-      t_clamped = torch.clamp(t, 0, self.motion.time_step_total - 1)
-      pos = self.motion.object_pos_w[t_clamped] + self._env.scene.env_origins
-      quat = self.motion.object_quat_w[t_clamped]
-      box.write_root_link_pose_to_sim(torch.cat([pos, quat], dim=-1))
+    # Comment out kinematic driving to allow robot to push the box
+    # if box is not None and not box.data.is_fixed_base and hasattr(self.motion, "_object_pos_w"):
+    #   t = self.time_steps
+    #   # Build (N,7) pose from per-time arrays; clamp indices in range
+    #   t_clamped = torch.clamp(t, 0, self.motion.time_step_total - 1)
+    #   pos = self.motion.object_pos_w[t_clamped] + self._env.scene.env_origins
+    #   quat = self.motion.object_quat_w[t_clamped]
+    #   box.write_root_link_pose_to_sim(torch.cat([pos, quat], dim=-1))
 
   def _debug_vis_impl(self, visualizer: DebugVisualizer) -> None:
-    """Draw ghost robot at target pose."""
+    """Draw ghost robot at target pose and ghost box at target position."""
     if self._ghost_model is None:
       self._ghost_model = copy.deepcopy(self._env.sim.mj_model)
       self._ghost_model.geom_rgba[:] = self._ghost_color
-
+      # Hide box geometries in robot ghost model
+      for i in range(self._ghost_model.ngeom):
+        geom_body_id = self._ghost_model.geom_bodyid[i]
+        body_name = mujoco.mj_id2name(self._ghost_model, mujoco.mjtObj.mjOBJ_BODY, geom_body_id)
+        if body_name and "box" in body_name:
+          # Hide box geometries in robot ghost
+          self._ghost_model.geom_rgba[i] = [0.0, 0.0, 0.0, 0.0]
+    
     entity: Entity = self._env.scene[self.cfg.asset_name]
     indexing = entity.indexing
     free_joint_q_adr = indexing.free_joint_q_adr.cpu().numpy()
@@ -457,6 +481,40 @@ class MotionCommand(CommandTerm):
     qpos[joint_q_adr] = self.joint_pos[visualizer.env_idx].cpu().numpy()
 
     visualizer.add_ghost_mesh(qpos, model=self._ghost_model)
+
+    # Visualize ghost box at target position
+    try:
+      box = self._env.scene.entities.get("box")  # type: ignore[attr-defined]
+      if box is not None:
+        # Get target box pose from motion data
+        target_pos = self.object_pos_w[visualizer.env_idx].cpu().numpy()
+        target_quat = self.object_quat_w[visualizer.env_idx].cpu().numpy()
+        
+        # Create ghost box visualization
+        box_indexing = box.indexing
+        box_free_joint_q_adr = box_indexing.free_joint_q_adr.cpu().numpy()
+        
+        box_qpos = np.zeros(self._env.sim.mj_model.nq)
+        box_qpos[box_free_joint_q_adr[:3]] = target_pos
+        box_qpos[box_free_joint_q_adr[3:7]] = target_quat
+        
+        # Create ghost box model with different color - only create once
+        if not hasattr(self, '_ghost_box_model'):
+          self._ghost_box_model = copy.deepcopy(self._env.sim.mj_model)
+          # Make ghost box more transparent and different color
+          self._ghost_box_model.geom_rgba[:] = [0.3, 0.7, 0.3, 0.3]  # Green transparent
+          
+          # Hide robot geometries, only show box
+          for i in range(self._ghost_box_model.ngeom):
+            geom_body_id = self._ghost_box_model.geom_bodyid[i]
+            body_name = mujoco.mj_id2name(self._ghost_box_model, mujoco.mjtObj.mjOBJ_BODY, geom_body_id)
+            if body_name and "box/largebox_link" not in body_name:
+              # Hide robot geometries
+              self._ghost_box_model.geom_rgba[i] = [0.0, 0.0, 0.0, 0.0]
+        
+        visualizer.add_ghost_mesh(box_qpos, model=self._ghost_box_model)
+    except Exception:
+      pass  # Skip ghost box if there are any issues
 
 
 @dataclass(kw_only=True)

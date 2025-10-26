@@ -23,46 +23,6 @@ class G1FlatEnvCfg(TrackingEnvCfg):
     # Add robot
     self.scene.entities = {"robot": g1_cfg}
 
-    # Add largebox object as a floating body by including its MJCF
-    def _make_largebox_spec() -> mujoco.MjSpec:
-      from pathlib import Path
-      # Resolve path to mjlab/src/mjlab/scene/largebox.xml relative to this file.
-      # parents[4] points to the package directory that contains `scene/`.
-      largebox_xml = Path(__file__).parents[4] / "scene" / "largebox.xml"
-      return mujoco.MjSpec.from_file(str(largebox_xml))
-
-    self.scene.entities["box"] = EntityCfg(spec_fn=_make_largebox_spec)
-
-    # Add box object for locomanipulation tasks (sub3_largebox_000_original)
-    # Updated from mesh bounds (meters)
-    # half_extents = (
-    #   0.235577,
-    #   0.229365,
-    #   0.203948,
-    # )
-    # object_center = (
-    #   0.001494,
-    #   -0.000715,
-    #   0.005756,
-    # )
-
-    # def _make_box_spec() -> mujoco.MjSpec:
-    #   spec = mujoco.MjSpec()
-    #   body = spec.worldbody.add_body(name="box_body")
-    #   # Place the body at the object's world center; geom at local origin
-    #   body.pos = object_center
-    #   # Keep box static (no joints) - it should not move or rotate
-    #   body.add_geom(
-    #     name="box_collision",
-    #     type=mujoco.mjtGeom.mjGEOM_BOX,
-    #     size=half_extents,
-    #     pos=(0.0, 0.0, 0.0),
-    #   )
-    #   return spec
-
-    # Add the box as a floating entity that can be kinematically driven
-    #box_cfg = EntityCfg(spec_fn=_make_box_spec, replicate_physics=True)
-    #self.scene.entities["box"] = box_cfg
     self.actions.joint_pos.scale = G1_ACTION_SCALE
 
     self.commands.motion.anchor_body_name = "torso_link"

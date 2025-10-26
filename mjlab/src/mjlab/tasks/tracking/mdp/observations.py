@@ -68,38 +68,27 @@ def robot_body_ori_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   mat = matrix_from_quat(ori_b)
   return mat[..., :2].reshape(mat.shape[0], -1)
 
-
 def object_pos_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
 
-  pos_b, _ = subtract_frame_transforms(
+  pos, _ = subtract_frame_transforms(
     command.robot_anchor_pos_w,
     command.robot_anchor_quat_w,
     command.object_pos_w,
     command.object_quat_w,
   )
-  return pos_b
-
+  
+  return pos.view(env.num_envs, -1)
 
 def object_ori_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
 
-  _, ori_b = subtract_frame_transforms(
+  _, ori = subtract_frame_transforms(
     command.robot_anchor_pos_w,
     command.robot_anchor_quat_w,
     command.object_pos_w,
     command.object_quat_w,
   )
-  mat = matrix_from_quat(ori_b)
+  mat = matrix_from_quat(ori)
   return mat[..., :2].reshape(mat.shape[0], -1)
 
-
-def object_pose_w(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
-  """Return object pose (pos[3], quat[4]) in world frame if available; zeros otherwise."""
-  command = cast(MotionCommand, env.command_manager.get_term(command_name))
-  if not hasattr(command.motion, "_object_pos_w"):
-    return torch.zeros(env.num_envs, 7, device=env.device)
-  pos = command.object_pos_w
-  quat = command.object_quat_w
-  # Expect shape (N, 3) and (N, 4)
-  return torch.cat([pos, quat], dim=-1)

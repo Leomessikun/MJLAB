@@ -10,20 +10,22 @@
 
 	<worldbody>
 		<body name="largebox_link" pos="0 0 0.5">
-			<!-- Free joint so the object can be posed/controlled kinematically -->
+			<!-- Free joint so the object can be pushed by the robot -->
 			<joint type="free" name="largebox_freejoint"/>
 
-			<!-- Inertial properties (rough placeholder) -->
-			<inertial pos="0 0 0" mass="0.1" diaginertia="0.002 0.002 0.002"/>
+			<!-- Realistic inertial properties for a large box -->
+			<inertial pos="0 0 0" mass="2.0" diaginertia="0.1 0.1 0.1"/>
 
 			<!-- Collision/visual geometry using the mesh -->
 			<geom name="largebox_geom"
 						type="mesh"
 						mesh="largebox_mesh"
 						material="box_material"
-						friction="0.9 0.5 0.01"
+						friction="0.8 0.5 0.01"
 						contype="1"
-						conaffinity="1"/>
+						conaffinity="1"
+						solimp="0.9 0.95 0.001"
+						solref="0.02 1"/>
 		</body>
 	</worldbody>
 </mujoco>

@@ -172,28 +172,3 @@ def object_global_orientation_error_exp(
   error = quat_error_magnitude(target_quat, current_quat) ** 2
   return torch.exp(-error / (std ** 2))
 
-
-def object_relative_ee_position_error_exp(
-  env: ManagerBasedRlEnv,
-  command_name: str,
-  object_asset_cfg: SceneEntityCfg,
-  std: float,
-  body_names: Optional[list[str]] = None,
-) -> torch.Tensor:
-  """Tracks end-effector relative position to object.
-
-  Compares (EE - object) vectors for both target motion and current robot pose.
-  """
-  command = cast(MotionCommand, env.command_manager.get_term(command_name))
-  box: Entity = env.scene[object_asset_cfg.name]
-  ee_indexes = _get_body_indexes(command, body_names)
-  # Motion relative vectors
-  target_rel = (
-    command.body_pos_w[:, ee_indexes] - command.object_pos_w[:, None, :]
-  )  # (N, E, 3)
-  # Robot relative vectors
-  current_rel = (
-    command.robot_body_pos_w[:, ee_indexes] - box.data.body_link_pos_w[:, 0][:, None, :]
-  )  # (N, E, 3)
-  error = torch.sum(torch.square(target_rel - current_rel), dim=-1)  # (N, E)
-  return torch.exp(-error.mean(-1) / (std ** 2))
