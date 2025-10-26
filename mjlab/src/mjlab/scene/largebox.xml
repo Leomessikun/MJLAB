@@ -1,0 +1,29 @@
+<mujoco model="largebox">
+
+	<asset>
+		<!-- Mesh asset for the large box; ensure largebox.obj is in the same directory -->
+		<mesh name="largebox_mesh" file="../../../../OmniRetarget_Dataset/models/largebox/largebox.obj" scale="1 1 1"/>
+
+		<!-- Simple translucent material -->
+		<material name="box_material" rgba="0.7 0.8 0.9 0.7"/>
+	</asset>
+
+	<worldbody>
+		<body name="largebox_link" pos="0 0 0.5">
+			<!-- Free joint so the object can be posed/controlled kinematically -->
+			<joint type="free" name="largebox_freejoint"/>
+
+			<!-- Inertial properties (rough placeholder) -->
+			<inertial pos="0 0 0" mass="0.1" diaginertia="0.002 0.002 0.002"/>
+
+			<!-- Collision/visual geometry using the mesh -->
+			<geom name="largebox_geom"
+						type="mesh"
+						mesh="largebox_mesh"
+						material="box_material"
+						friction="0.9 0.5 0.01"
+						contype="1"
+						conaffinity="1"/>
+		</body>
+	</worldbody>
+</mujoco>
